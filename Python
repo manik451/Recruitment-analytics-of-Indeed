@@ -1,0 +1,201 @@
+#Extracting data from USAJobs Portal through API
+import requests
+import json
+import pandas as pd
+ 
+
+url = "https://data.usajobs.gov/api/Search"
+lstofjobtitles=["Data Analyst","Data Quality Analyst","Business Analyst","Data Scientist",
+                "Program Analyst","Business Intelligence Analyst","Computer Scientist","Product Analyst",
+               "Traffic Safety Data Analyst","Budget Analyst","Management and Program Analyst","IT Specialist","Information Technology Specialist"]
+
+querystring = {"PositionTitle":lstofjobtitles,"Page":"1","ResultsPerPage":"3000"}
+
+headers = {
+    'Host': "data.usajobs.gov",
+    'User-Agent': "Mkumari2@horizon.csueastbay.edu",
+    'Authorization-Key': "tAYj6pshK1e/aIBdvg8UgpzN65qOcn5oEeo8oU+5V4s=",
+    }
+
+response= requests.request("GET", url, headers=headers, params=querystring)
+
+print(response.text)
+
+fh = open("All-PositionTitles-JSON-Response.json", "w")
+fh.write(response.text)
+fh.close()
+
+data = json.loads(response.text) # json.loads() convert a json string to python dictionary.
+data
+
+#Convertion of Nested Dictionary to Dataframe
+data1={};data2={}
+data3=[];data4=[];data5=[];data6=[]
+data1=data['SearchResult']
+data2=data1['SearchResultItems']
+position=[];title=[];company=[];dept=[];url=[];applyurl=[];summary=[];startdate=[];enddate=[];deadline=[]
+minr=[];maxr=[];ric=[]
+offeringtype=[];jobtype=[];jobtypecode=[];
+state=[];country=[]
+jobsummary=[];promotionpotential=[]
+for d in range(len(data2)):
+    position.append(data2[d]['MatchedObjectDescriptor']['PositionID'])
+    title.append(data2[d]['MatchedObjectDescriptor']['PositionTitle'])
+    company.append(data2[d]['MatchedObjectDescriptor']['OrganizationName'])
+    dept.append(data2[d]['MatchedObjectDescriptor']['DepartmentName'])
+    url.append(data2[d]['MatchedObjectDescriptor']['PositionURI'])
+    applyurl.append(data2[d]['MatchedObjectDescriptor']['ApplyURI'])
+    summary.append(data2[d]['MatchedObjectDescriptor']['QualificationSummary'])
+    startdate.append(data2[d]['MatchedObjectDescriptor']['PublicationStartDate'])
+    enddate.append(data2[d]['MatchedObjectDescriptor']['PositionEndDate'])
+    deadline.append(data2[d]['MatchedObjectDescriptor']['ApplicationCloseDate'])
+    data3=data2[d]['MatchedObjectDescriptor']['PositionRemuneration']
+    minr.append(data3[0]['MinimumRange'])
+    maxr.append(data3[0]['MaximumRange'])
+    ric.append(data3[0]['RateIntervalCode'])
+    data4=data2[d]['MatchedObjectDescriptor']['PositionSchedule']
+    jobtype.append(data4[0]['Name'])
+    jobtypecode.append(data4[0]['Code'])
+    data5=data2[d]['MatchedObjectDescriptor']['PositionLocation']
+    if(data2[d]['MatchedObjectDescriptor']['PositionLocationDisplay'] != 'Multiple Locations'):
+        state.append(data2[d]['MatchedObjectDescriptor']['PositionLocationDisplay'])
+    else:
+        state.append([x['LocationName'] for x in data2[d]['MatchedObjectDescriptor']['PositionLocation']])
+    country.append(data5[0]['CountryCode'])
+    jobsummary.append(data2[d]['MatchedObjectDescriptor']['UserArea']['Details']['JobSummary'])
+    promotionpotential.append(data2[d]['MatchedObjectDescriptor']['UserArea']['Details']['PromotionPotential'])
+    data6=data2[d]['MatchedObjectDescriptor']['PositionOfferingType']
+    offeringtype.append(data6[0]['Name'])
+    dictdata={'Jobtitle':title,'OrganizationName':company,'DepartmentName':dept,'Location':state,'Country':country,
+              'PositionURL':url,'ApplyURL':applyurl,'QualificationSummary':summary,'MinimumSalaryRange':minr,
+              'MaximumSalaryRange':maxr,'PublicationStartDate':startdate,'ApplicationCloseDate':deadline,
+              'JobType':jobtype,'PositionOfferingType':offeringtype,'JobSummary':jobsummary}
+jobs=pd.DataFrame(dictdata)
+jobs
+
+
+#Writing the rawdata into a Excel sheet
+writer=pd.ExcelWriter('RawData.xlsx')
+jobs.to_excel(writer,'Data')
+writer.save()
+
+
+#Filtering out the raw data for the desired job titles
+string="Data Scientist|Data Analyst|Program Analyst|PROGRAM ANALYST|Intelligence Specialist|INTELLIGENCE SPECIALIST|Data Quality Analyst|Risk Analyst|Budget Analyst|Management and Program Analyst|Traffic Safety Data Analyst|MANAGEMENT AND PROGRAM ANALYST|Supv Management and Program Analyst|Information Technology Specialist|Legislative Data Specialist|DATA MANAGEMENT SPECIALIST|Programmer/Analyst|Program Support Specialist|IT Program Manager|IT PROGRAM MANAGER"
+jobs1=pd.DataFrame(jobs[jobs['Jobtitle'].str.contains(string)])
+jobs1=jobs1.reset_index(drop=True)
+jobs1
+
+
+#Extracting the skillset from the QualificationSummary Column
+import re
+import pandas as pd
+word=[]
+word1=[]
+for i in range(len(jobs1)):
+    des=jobs1['QualificationSummary'][i]
+    word.append(re.findall(r'\bPython\b|\bSQL\b|\bsql\b|\bsolution analysis\b|\banalytical techniques\b|\bapplication administration\b|\bdata delivery\b|\bqueries\b|\bOracle\b|\boperations research analysis\b|\b Lean Six Sigma\b|\bmobile security intelligence\b|\bContingency operations\b|\bdatabase operations\b|\bstatistical programs\b|\bSTATISTICAL ANALYSIS\b|\binformatics\b|\bAdvanced genetic analysis\b|\bcode\b|\bcost analysis\b|\blogical data modeling\b|\bphysical database design\b|\bdatabase security b|\bmainframe architecture\b|\bbusiness performance analysis\b|\bNational Service programs\b|\bIBM z/OS\b|\bDb2\b|\bdata models\b|\balgorithms\b|\bconfiguration management\b|\bAIS\b|\bOS\b|\bdata architect\b\\bsystem architecture\b|\brelational database\b|\bdata mining\b|\bcost analysis\b|\btesting\b|\bprogramming\b|\bCyber security\b|\bproject management\b|\bSAS\b|\bR\b|\bHadoop\b|\bSpark\b|\bExcel\b|\bMatlab\b|\bTableau\b|\bTSQL\b|\bSSIS\b|\bSSRS\b|\bETL\b|\bData Operations\b|\bgeospatial intelligence\b|\bMASINT\b|\bartificial intelligence\b|\bDecision Making\b|\bOral Communication\b|\bPresentation Skills\b|\bMySQL\b|\bMicrosoft SQL Server\b|\bMS\b|\bData mining\b|\bmachine learning\b|\badministrative support\b|\bAccounting\b|\bdata management\b|\bstaffing\b|\beconomics\b|\btarget analysis\b|\borganizational management\b|\bcustomer service\b|\bBusiness Administration\b|\bManagementPlanning\b|\beconomics\b|\bformulation\b|\bUser Management\b|\bNLP\b|\bdata tracking\b|\badministrative support\b|\bbudgets\b|\bstatistics\b|\banalytical\b|\bFederal Service\b|\bSAP\b|\breports\b|\bformulation\b|\bcompiling\b|\bAccountancy\b|\btrend analysis\b|\bdata tracking\b|\bCollection\b|\bDocumentation\b|\bIntelligence Analyst\b|\bDefense Civilian Intelligence Personnel System\b|\bAcquisition\b|\bIntelligence Operations\b|\bOperations\b|\bERP\b|\bmanagement\b|\bBudget Planning\b|\bBudget Formulation\b|\bBudget Functions|\bbudget analyst\b|\bprogram analyst\b|\bquantitative analysis\b|\bhealth care\b|\bOracle Database Appliance\b|\bLinux\b|\bdesign development\b|\bdata warehousing\b|\bpredictive analysis\b|\bdata quality program\b|\btracking trending metrics\b|\bData Quality Management\b|\bdata query reporting\b|\bdashboards\b|\bcoding\b|\bmetadata\b|\bmetadata models\b|\bdata repositories\b',des))
+for i in range(len(word)):
+    if not word[i]:
+        word1.append("NA")
+    else:
+        word1.append(set(word[i]))
+values=pd.Series(word1,index=range(len(word1)))
+jobs1['Skillset']=values
+jobs1
+
+
+#Extracting the Experience from the QualificationSummary Column
+import re
+jobs=None
+word=[]
+word1=[]
+for i in range(len(jobs1)):
+    des=jobs1['QualificationSummary'][i]
+    allYears = re.findall(r'(\d+|one|two|three|four|five|six|seven|eight|nine|ten)(?:\s?)(?:years|year|full year|full year|-|\))',des.lower())
+    word.append(max(allYears,default='').strip().lower())
+for i in range(len(word)):
+    value = None
+    if word[i]=='one':
+        value=1
+    elif word[i] == 'two':
+        value = 2
+    elif word[i]=='three':
+        value=3
+    elif word[i]=='four':
+        value=4
+    elif word[i] == 'five':
+        value = 5
+    elif word[i]=='six':
+        value=6
+    elif word[i]=='seven':
+        value=7
+    elif word[i] =='eight':
+        value = 8
+    elif word[i]=='nine':
+        value=9
+    elif word[i]=='ten':
+        value=10
+    elif word[i].isdigit():
+        value=int(word[i])
+    if value !=None:
+        if value>20:
+            value =None
+    word1.append(value)
+jobs1['Experience Required']=word1
+
+
+#Cleaning the Job Title column
+titles_dict = {"30817 - Data Scientist - GS-13":"Data Scientist","AX092 - Program Analyst - GS-15":"Program Analyst","Command Control Communications Computers and Information Requirements Program Analyst":"Program Analyst","Data Analyst (Health Care Fraud) - Direct Hire":"Data Analyst","DATA MANAGEMENT SPECIALIST":"Data Management Specialist","Data Quality Analyst":"Data Analyst","Diversity and Inclusion Program Analyst (Generalist)":"Program Analyst","Immigration Program Analyst":"Program Analyst","Information Technology Specialist - Project Manager NF4":"Information Technology Specialist","Information Technology Specialist (Application Software)":"Information Technology Specialist","Information Technology Specialist (APPSW)":"Information Technology Specialist","Information Technology Specialist (APPSW) - NF4":"Information Technology Specialist","Information Technology Specialist (APPSW/CUSTSPT)":"Information Technology Specialist","Information Technology Specialist (APPSW/INET)":"Information Technology Specialist","Information Technology Specialist (Computer Services Manager)":"Information Technology Specialist","Information Technology Specialist (Computer Specialist)":"Information Technology Specialist","Information Technology Specialist (Customer Support)":"Information Technology Specialist","Information Technology Specialist (Customer Support/INFOSEC)":"Information Technology Specialist","Information Technology Specialist (CUSTSPT)":"Information Technology Specialist","Information Technology Specialist (Cyber Security)":"Information Technology Specialist","Information Technology Specialist (Data Management)":"Information Technology Specialist","Information Technology Specialist (Data Management-Business Intelligence) NF4":"Information Technology Specialist","Information Technology Specialist (Enterprise Architecture)":"Information Technology Specialist","Information Technology Specialist (INET)":"Information Technology Specialist","Information Technology Specialist (Information Security)":"Information Technology Specialist","Information Technology Specialist (Information Security)-Direct Hiring Authority":"Information Technology Specialist","Information Technology Specialist (INFOSEC)":"Information Technology Specialist","Information Technology Specialist (INFOSEC/Policy and Planning)":"Information Technology Specialist","Information Technology Specialist (Network Services)":"Information Technology Specialist","Information Technology Specialist (NETWORK)":"Information Technology Specialist","Information Technology Specialist (NETWORK/INFOSEC)":"Information Technology Specialist","Information Technology Specialist (Policy and Planning)":"Information Technology Specialist","Information Technology Specialist (Project Manager)":"Information Technology Specialist","Information Technology Specialist (Research & Development)":"Information Technology Specialist","Information Technology Specialist (Security)":"Information Technology Specialist","Information Technology Specialist (Security) (Red Team Lead)":"Information Technology Specialist","Information Technology Specialist (Security) (Threat Intel)":"Information Technology Specialist","Information Technology Specialist (Security) (Watch Officer)":"Information Technology Specialist","Information Technology Specialist (Security) *12 Month Roster*":"Information Technology Specialist","Information Technology Specialist (Security) *Roster* *Amended*":"Information Technology Specialist","Information Technology Specialist (SYSADMIN) NF-04":"Information Technology Specialist","Information Technology Specialist (SYSADMIN/NETWORK)":"Information Technology Specialist","Information Technology Specialist (SYSADMIN/Virtualization)":"Information Technology Specialist","Information Technology Specialist (SYSANALYSIS)":"Information Technology Specialist","Information Technology Specialist (System Administration)":"Information Technology Specialist","Information Technology Specialist (System Administration/Customer Support)":"Information Technology Specialist","Information Technology Specialist (System Analysis -Information Security)":"Information Technology Specialist","Information Technology Specialist (Systems Administration)":"Information Technology Specialist","Information Technology Specialist *12 Month Roster* (Network Services)":"Information Technology Specialist","Information Technology Specialist, GS-2210-09/11 (DHA-TERM-MAB)":"Information Technology Specialist","Information Technology Specialist, GS-2210-13 (Direct Hire Authority)":"Information Technology Specialist","INTELLIGENCE SPECIALIST":"Intelligence Specialist","Intelligence Specialist (CI)":"Intelligence Specialist","Intelligence Specialist (GMI Analyst)":"Intelligence Specialist","Intelligence Specialist (Operations Support)":"Intelligence Specialist","Intelligence Specialist (Operations)":"Intelligence Specialist","Intelligence Specialist (Staff Management)":"Intelligence Specialist","IT Program Manager (Data Management)":"IT Program Manager","IT Program Manager (PLCYPLN/APPSW)":"IT Program Manager","IT PROGRAM MANAGER *12 MONTH ROSTER*":"IT Program Manager","IT PROGRAM MANAGER 12 MONTH ROSTER":"IT Program Manager","Lead Immigration Program Analyst":"Program Analyst","Lead Information Technology Specialist (DATAMGT)":"Information Technology Specialist","Lead Management and Program Analyst":"Program Analyst","Lead Program Analyst":"Program Analyst","Legislative Data Specialist":"Data Management Specialist","MANAGEMENT & PROGRAM ANALYST":"Management & Program Analyst","Management & Program Analyst (Pathways Recent Graduates)":"Management & Program Analyst","Management & Program Analyst, GS-0343-13 (DEU)":"Management & Program Analyst","Management & Program Analyst, GS-0343-13 (MP)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST  *12 MONTH ROSTER* *AMENDED* (PROJECT MANAGER)":"Management & Program Analyst","Management and Program Analyst (Acquisitions)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST (COOPERATIVE AGREEMENTS)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST (COOPERATIVE AGREEMENTS) T5":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST (CORRESPONDENCE SPECIALIST)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST (Identity Assurance Office) *12 month Roster*":"Management & Program Analyst","Management and Program Analyst (Information Systems & Security Evaluation Specialist)":"Management & Program Analyst","Management and Program Analyst (Lean/Systems Redesign)":"Management & Program Analyst","Management and Program Analyst (Project Manager) *12 Month Roster* *Amended*":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST (SENIOR OUTREACH ANALYST)":"Management & Program Analyst","Management and Program Analyst (VISN Data Scientist)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST **12 MONTH REGISTER** (PROJECT MANAGER)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST **12 Month Roster** **AMENDED** (Project Manager)":"Management & Program Analyst","Management and Program Analyst *12 Month Register* (Project Manager)":"Management & Program Analyst","MANAGEMENT AND PROGRAM ANALYST *12 MONTH ROSTER* *AMENDED*":"Management & Program Analyst","Management and Program Analyst, GS-0343-11/12/13 (MAP)":"Management & Program Analyst","Management and Program Analyst, GS-0343-13":"Management & Program Analyst","Management and Program Analyst, GS-343-13":"Management & Program Analyst","Management and Program Analyst, ZA-0343-3/4 (DE/CR)":"Management & Program Analyst","Management and Program Analyst, ZA-0343-3/4 (MAP)":"Management & Program Analyst","PROGRAM ANALYST (DOIM)":"Program Analyst","Program Analyst (Human Factors Engineering), GS-0343-12/13":"Program Analyst","Program Analyst (Infrastructure)":"Program Analyst","Program Analyst (Intermodal)":"Program Analyst","Program Analyst (Lessons Learned)":"Program Analyst","PROGRAM ANALYST (MUNITIONS & MISSLE MAINTENCE BRANCH CHIEF)":"Program Analyst","PROGRAM ANALYST (PLANS AND PROGRAMS)":"Program Analyst","Program Analyst (Production Help Desk Analyst)":"Program Analyst","PROGRAM ANALYST (STRATEGIC PLANNER/INTEGRATOR)":"Program Analyst","PROGRAM ANALYST (Title 32)":"Program Analyst","PROGRAM ANALYST (TITLE 5)":"Program Analyst","PROGRAM ANALYST (TRAINING/MARITIME OPERATIONS)":"Program Analyst","Program Analyst (Workers Compensation)":"Program Analyst","PROGRAM ANALYST(TOA Configuration Management)":"Program Analyst","Program Analyst, GG-0343-11, Census-CTAP/ICTAP-JP":"Program Analyst","Program Analyst, GS-0343-09, Census-MP-SM":"Program Analyst","Program Analyst, GS-0343-09,Census-DE-SM":"Program Analyst","Program Analyst, GS-0343-12/13":"Program Analyst","Program Analyst, GS-343-11/12 MP":"Program Analyst","PROGRAM ANALYST/ MANAGER NATO INFRASTRUCTURE":"Program Analyst","Program Support Specialist":"Program Analyst","Programmer/Analyst":"Program Analyst","SENIOR CRIMINAL INTELLIGENCE SPECIALIST":"Intelligence Specialist","SEU-DHA GS-0343 Program Analyst":"Program Analyst","Supervisory Information Technology Specialist":"Information Technology Specialist","Supervisory Information Technology Specialist (Customer Support)":"Information Technology Specialist","Supervisory Information Technology Specialist (INFOSEC)":"Information Technology Specialist","Supervisory Information Technology Specialist (Policy and Planning)":"Information Technology Specialist","Supervisory Information Technology Specialist, (Branch Chief), GS-2210-14 (2210)":"Information Technology Specialist","SUPERVISORY INTELLIGENCE SPECIALIST":"Information Technology Specialist","Supervisory Intelligence Specialist (GMI Analyst)":"Information Technology Specialist","Supervisory Intelligence Specialist (Operations)":"Information Technology Specialist","Supervisory IT Program Manager":"IT Program Manager",
+                      "Supervisory IT Program Manager (DIRECTOR, TECHNOLOGY MANAGEMENT DIVISION)":"IT Program Manager","SUPERVISORY MANAGEMENT & PROGRAM ANALYST":"Program Analyst","SUPERVISORY MANAGEMENT AND PROGRAM ANALYST":"Program Analyst","Supervisory Management and Program Analyst":"Program Analyst","Supervisory Management Program Analyst":"Program Analyst","Supervisory Program Analyst":"Program Analyst","SUPERVISORY PROGRAM ANALYST":"Program Analyst","Supervisory Program Analyst - VS Supervisor":"Program Analyst","Supervisory Program Analyst (GS-0343-14)":"Program Analyst","Supervisory Program Analyst (Readiness & Plans)":"Program Analyst","Supervisory Program Analyst, GS-0343-14 (MPP-JM)":"Program Analyst","Supervisory Program Analyst, NB-0343-VI.2":"Program Analyst","Supv Management and Program Analyst":"Program Analyst","SUPVY MANAGEMENT & PROGRAM ANALYST":"Program Analyst","TECHNICAL DATA MANAGEMENT SPECIALIST":"Data Management Specialist","PROGRAM ANALYST (TITLE 32)":"Program Analyst",
+                     "Management and Program Analyst":"Management and Program Analyst", "Management & Program Analyst":"Management and Program Analyst","PROGRAM ANALYST":"Program Analyst",
+                      "Supervisory Program Analyst, GG-0343-14, Census-MP-SAB":"Program Analyst","Supervisory Program Analyst, GG-0343-14, Census-DE-SAB":"Program Analyst"}
+formatted_list = []
+for title in jobs1['Jobtitle']:
+    formatted_list.append(titles_dict.get(title, title))
+
+jobs1['Jobtitle']= formatted_list
+jobs1
+
+#Cleaning the Jobtype Column
+pd.set_option('mode.chained_assignment', None)
+for i in range(len(jobs1)):
+    if(jobs1['JobType'][i].find("Full") != -1 or jobs1['JobType'][i].find("40") != -1):
+        jobs1['JobType'][i]="Full-Time"
+    elif(jobs1['JobType'][i].find("Part") != -1):
+        jobs1['JobType'][i]="Part-Time"
+    elif(jobs1['JobType'][i].find("Flex") != -1):
+        jobs1['JobType'][i]="Flex-Time"
+    else:
+        jobs1['JobType'][i]="NA"
+        
+        
+#Cleaning the Min and Max Salary Range column
+pd.set_option('mode.chained_assignment', None)
+#Min
+for i in range(len(jobs1)):
+    new=jobs1['MinimumSalaryRange'][i].split(".")
+    jobs1['MinimumSalaryRange'][i]=new[0]
+#Max
+for i in range(len(jobs1)):
+    new1=jobs1['MaximumSalaryRange'][i].split(".")
+    jobs1['MaximumSalaryRange'][i]=new1[0]
+    
+    
+#Cleaning the PositionOfferingType column
+pd.set_option('mode.chained_assignment', None)
+for i in range(len(jobs1)):
+    if(jobs1['PositionOfferingType'][i].find("Permanent") != -1):
+        jobs1['PositionOfferingType'][i]="Permanent"
+    elif(jobs1['PositionOfferingType'][i].find("Temporary") != -1):
+        jobs1['PositionOfferingType'][i]="Temporary"
+    elif(jobs1['PositionOfferingType'][i].find("Term" or "Days" or "Years" or "Months") != -1):
+        jobs1['PositionOfferingType'][i]="Term"
+    else:
+        jobs1['PositionOfferingType'][i]="NA"
+        
+        
+#Writing the processed data into a Excel sheet
+writer=pd.ExcelWriter('AnalysisData.xlsx')
+jobs1.to_excel(writer,'data')
+writer.save()
