@@ -1,4 +1,4 @@
-# Recruitment-analytics-of-Indeed
+# Recruitment-analytics-of-USA JOBS
 
 Used API to collect the data. Web APIs provide a means of communication between websites and users, structured by rules.
 Requesting data using API is considered to be easier than web scraping technique, but trust me it was very difficult to convert 
